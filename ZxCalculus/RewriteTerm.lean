@@ -51,7 +51,7 @@ inductive ZXAx : ∀ {n m}, ZxTerm n m → ZxTerm n m → Prop
         ;
         (ZxTerm.gen (Generator.cap : Generator 2 0) ⊗ idn n) )
       ( castZx (by simp) (by simp) (idn n) )
-/-- Bialgebra (small-arity interaction) — as you had. -/
+/-- Bialgebra (small-arity interaction) -/
 | bialgebra :
     ZXAx
       (ZxTerm.gen (Generator.Z 0 2 1) ; ZxTerm.gen (Generator.X 0 1 2))
