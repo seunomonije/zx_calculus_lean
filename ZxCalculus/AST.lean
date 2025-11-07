@@ -6,8 +6,8 @@ inductive Generator : ℕ → ℕ → Type
 | id : {n : ℕ} → Generator n n -- the identity generator on n wires (type n → n)
 | swap : (n m : ℕ) → Generator (n + m) (m + n) -- the swap generator (type (n + m) -> (m + n))
 | H : Generator 1 1 -- the hadamard generator (type 1 → 1)
-| Z     : (α : ℚ) → (n m : ℕ) → Generator n m -- Z spider with angle α*π (type n → m)
-| X     : (α : ℚ) → (n m : ℕ) → Generator n m -- X spider with angle α*π (type n → m)
+| Z     : (α : Real.Angle) → (n m : ℕ) → Generator n m -- Z spider with angle α*π (type n → m)
+| X     : (α : Real.Angle) → (n m : ℕ) → Generator n m -- X spider with angle α*π (type n → m)
 | cup   : Generator 0 2 -- bell state (cup) (type 0 → 2)
 | cap   : Generator 2 0 -- bell effect (cap) (type 2 → 0)
 
@@ -27,7 +27,11 @@ infixl:90 " ; " => ZxTerm.seq   -- Sequential composition
 infixl:80 " ⊗ " => ZxTerm.tens  -- Tensor product
 
 -- Define the dagger (adjoint) of a ZX term
-def dagger {n m : ℕ} : ZxTerm n m → ZxTerm m n
+-- Marked noncomputable because Real.Angle arithmetic isnt computable
+-- This function can be used in proofs but can not evaluate as a program
+-- If we need to compute with this later we can replace Real.Angle with ℝ or ℚ
+-- and lose some mathematical precision
+noncomputable def dagger {n m : ℕ} : ZxTerm n m → ZxTerm m n
 | .gen g => match g with
   | .empty         => ZxTerm.gen Generator.empty
   | .id            => ZxTerm.gen Generator.id

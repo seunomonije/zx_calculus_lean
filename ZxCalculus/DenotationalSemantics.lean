@@ -1,0 +1,1 @@
+-- In this file we define the interpretation of ZX diagrams as linear maps in a finite dimensional vector space
