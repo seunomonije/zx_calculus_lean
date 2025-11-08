@@ -1,6 +1,6 @@
 import ZxCalculus.AST
 import Mathlib.Logic.Relation
-open Real
+open Real Relation
 
 open ZxTerm'
 
@@ -59,7 +59,7 @@ inductive Struc₀ : ZxTerm' → ZxTerm' → Prop
 -- congruence
 | comp  : ∀ {f f' g g'}, Struc₀ f f' → Struc₀ g g' → Struc₀ (f ; g) (f' ; g')
 | tens  : ∀ {f f' g g'}, Struc₀ f f' → Struc₀ g g' → Struc₀ (f ⊗ g) (f' ⊗ g')
--- strict associativity (choose a normalization)
+-- strict associativity
 | assoc_comp : ∀ f g h, Struc₀ ((f ; g) ; h) (f ; (g ; h))
 | assoc_tens : ∀ f g h, Struc₀ ((f ⊗ g) ⊗ h) (f ⊗ (g ⊗ h))
 -- tensor unit (0 wires, i.e. `idn 0`)
@@ -80,11 +80,5 @@ inductive Struc₀ : ZxTerm' → ZxTerm' → Prop
 -- smallest *equivalence* containing Struc₀ (refl/symm/trans)
 def Struc : ZxTerm' → ZxTerm' → Prop := Relation.EqvGen Struc₀
 
-def rcomp {α : Type*} (r s : α → α → Prop) : α → α → Prop :=
-  fun x z => ∃ y, r x y ∧ s y z
-
-infixr:60 " ⨾ " => rcomp
-
--- The final rewrite relation encoding the rewrite rules as well as "only topology matters"
 def Step : ZxTerm' → ZxTerm' → Prop :=
-  (Struc) ⨾ (rewrites) ⨾ (Struc)
+  Comp (Comp Struc rewrites) Struc

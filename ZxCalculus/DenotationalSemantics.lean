@@ -20,15 +20,18 @@ abbrev Qubits (n : ℕ) := Fin (2^n) → ℂ
 abbrev LinMap (n m : ℕ) := Qubits n →ₗ[ℂ] Qubits m
 
 noncomputable section
-
 -- Interpret generators (to be filled in)
-def interpGen (g : Generator') : Option (Σ n m : ℕ, LinMap n m) :=
-  sorry
+def interpGen (g : Generator') : (Σ n m : ℕ, LinMap n m) :=
+match g with
+  | .empty => ⟨0, 0, LinearMap.id⟩
+  | _ => sorry
 
 -- Main interpretation
-def interp : ZxTerm' → Option (Σ n m : ℕ, LinMap n m)
+def interp : ZxTerm' → (Σ n m : ℕ, LinMap n m)
   | .gen g => interpGen g
-  | f ; g => sorry  -- Compose linear maps
-  | f ⊗ g => sorry  -- Tensor product of linear maps
-
+  | f ; g =>
+      let ⟨nf, mf, φf⟩ := interp f
+      let ⟨ng, mg, φg⟩ := interp g
+      ⟨nf, mg, sorry⟩  -- φg.comp φf, need to handle mf = ng
+  | f ⊗ g => sorry
 end
