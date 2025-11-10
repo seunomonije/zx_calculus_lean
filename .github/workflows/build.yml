@@ -1,0 +1,23 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Lean
+        uses: leanprover/lean-action@v1
+        with:
+          build-args: ""
+
+      - name: Build project
+        run: lake build
+
