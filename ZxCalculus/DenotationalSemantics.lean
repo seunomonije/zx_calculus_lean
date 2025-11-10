@@ -13,44 +13,63 @@ attribute [local simp] add_assoc add_comm mul_assoc mul_add add_mul
 /-!
 # Denotational Semantics for ZX-Calculus
 
-We interpret ZX diagrams as linear maps between finite-dimensional complex vector spaces.
-An n-wire diagram corresponds to ℂ^(2^n).
+This file defines the interpretation of ZX diagrams as linear maps between
+finite-dimensional complex Hilbert spaces. An n-wire diagram denotes a linear
+map ℂ^(2^n) → ℂ^(2^m), representing quantum operations on n qubits.
+
+## Main Definitions
+
+- `Qubits n`: The Hilbert space ℂ^(2^n) for n qubits
+- `LinMap n m`: Linear maps from n-qubit space to m-qubit space
+- `ket`/`bra`: Quantum state vectors and dual vectors
+- `decompose`/`recompose`: Index manipulation for tensor product spaces
+- `interpGen`: Interpretation of ZX generators as linear maps
+- `interp`: Interpretation of composite ZX diagrams
+
+## Implementation Notes
+
+All definitions are noncomputable as they involve complex numbers and
+infinite-dimensional constructions. The interpretation uses Mathlib's
+`PiLp` type for L²-spaces with the standard inner product.
 -/
 
 open Complex ComplexConjugate InnerProductSpace
 
-
--- Helper: vector space for n qubits
-
+/-- The Hilbert space for n qubits: ℂ^(2^n) with L² norm -/
 abbrev Qubits (n : ℕ) := PiLp 2 (fun _ : Fin (2^n) => ℂ)
 
+/-- Linear maps between qubit spaces -/
 abbrev LinMap (n m : ℕ) := Qubits n →ₗ[ℂ] Qubits m
 
 noncomputable section
 
+/-- Ket: embeds a quantum state as a linear map from the scalar space -/
 def ket {n : ℕ} (a : Qubits n) : Qubits 0 →ₗ[ℂ] Qubits n := {
   toFun := fun s => s 0 • a
   map_add' := by intros; simp [add_smul]
   map_smul' := by intros; simp [smul_smul]
 }
 
+/-- Bra: dual of a quantum state, maps states to their inner product -/
 def bra {n : ℕ} (a : Qubits n) : Qubits n →ₗ[ℂ] Qubits 0 := {
   toFun := fun b => (WithLp.equiv 2 _).symm (fun _ => inner ℂ a b)
   map_add' := by intros; ext; simp [inner_add_right]
   map_smul' := by intros; ext; simp [inner_smul_right]
 }
 
--- Decompose Fin (2^(n+m)) into (Fin (2^n), Fin (2^m))
+/-- Decompose a tensor product index Fin(2^(n+m)) into (Fin(2^n), Fin(2^m)) -/
 def decompose {n m : ℕ} (i : Fin (2 ^ (n + m))) : Fin (2 ^ n) × Fin (2 ^ m) :=
   have h : 2 ^ (n + m) = 2 ^ n * 2 ^ m := by ring_nf
   let first := i.val / (2 ^ m)
   let second := i.val % (2 ^ m)
   (⟨first, sorry⟩, ⟨second, sorry⟩)
 
+/-- Recompose tensor product indices back into a single index -/
 def recompose {n m : ℕ} (j : Fin (2 ^ m)) (i : Fin (2 ^ n)) : Fin (2 ^ (m + n)) :=
   have h : 2 ^ (m + n) = 2 ^ m * 2 ^ n := by ring_nf
   ⟨j.val * (2 ^ n) + i.val, sorry⟩
 
+/-- Swap operation: permutes tensor factors (n qubits) ⊗ (m qubits) → (m qubits) ⊗ (n qubits) -/
 def swap_gen (n m : ℕ) : LinMap (n + m) (m + n) := {
   toFun := fun ψ =>
     WithLp.equiv 2 _ |>.symm fun i =>
@@ -61,20 +80,20 @@ def swap_gen (n m : ℕ) : LinMap (n + m) (m + n) := {
   map_smul' := sorry
 }
 
--- Interpret generators
-def interpGen (g : Generator') : (Σ n m : ℕ, LinMap n m) :=
+/-- Interpret ZX generators as linear maps -/
+def interpGen {n m : ℕ} (g : Generator n m) : LinMap n m :=
 match g with
-  | .empty => ⟨0, 0, LinearMap.id⟩
-  | .id n => ⟨n, n, LinearMap.id⟩
-  | .swap n m => ⟨m, n, sorry⟩
-  | _ => sorry
+  | .empty => LinearMap.id
+  | .id => LinearMap.id
+  | .swap n m => sorry  -- TODO: use swap_gen
+  | _ => sorry  -- TODO: H, Z, X spiders, cup, cap
 
--- Main interpretation
-def interp : ZxTerm' → (Σ n m : ℕ, LinMap n m)
+/-- Interpret ZX diagrams as linear maps via structural recursion -/
+def interp {n m : ℕ} : ZxTerm n m → (LinMap n m)
   | .gen g => interpGen g
   | f ; g =>
-      let ⟨nf, mf, φf⟩ := interp f
-      let ⟨ng, mg, φg⟩ := interp g
-      ⟨nf, mg, sorry⟩  -- φg.comp φf, need to handle mf = ng
-  | f ⊗ g => sorry
+      let φf := interp f
+      let φg  := interp g
+      LinearMap.comp φg φf
+  | f ⊗ g => sorry  -- TODO: tensor product of linear maps
 end

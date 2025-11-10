@@ -1,84 +1,139 @@
+/-
+# ZX-Calculus Rewrite Rules
+
+This file defines the equational theory of the ZX-calculus, a graphical language
+for reasoning about quantum circuits and linear maps.
+
+## Main Definitions
+
+- `tensor_pow`: Helper function to tensor a diagram with itself k times
+- `ZxEquiv`: Inductive type encoding the ZX-calculus rewrite rules as an equivalence relation
+
+## Axioms
+
+The ZX-calculus equivalence includes:
+1. **Equivalence structure**: reflexivity, symmetry, transitivity
+2. **Congruence**: compatibility with sequential and parallel composition
+3. **Structural axioms**: monoidal category laws (associativity, units, interchange)
+4. **ZX-specific rules**: spider fusion, color change (Hadamard conjugation), π-copy rules
+-/
+
 import ZxCalculus.AST
 import Mathlib.Logic.Relation
-open Real Relation
+open Real Relation ZxTerm
 
-open ZxTerm'
+/--
+Tensor a diagram with itself k times.
+For a diagram `d : ZxTerm n m`, `tensor_pow d k` produces a diagram of type `ZxTerm (k*n) (k*m)`.
+Uses `simpa` to handle definitional equality issues with natural number arithmetic.
+-/
+def tensor_pow {n m : ℕ} (d : ZxTerm n m) : (k : ℕ) → ZxTerm (k * n) (k * m)
+| 0 => by
+    simpa [Nat.zero_mul] using (empty : ZxTerm 0 0)
+| 1 => by
+    simpa [Nat.one_mul] using d
+| k + 1 => by
+    simpa [Nat.succ_eq_add_one, Nat.succ_mul, Nat.add_comm, Nat.add_left_comm, Nat.add_assoc] using
+      (d.tens (tensor_pow d k))
 
-/-- Diagram tensored with itself n times. -/
-def pow (n : ℕ) (zx : ZxTerm') : ZxTerm' :=
-match n with
-| 0     => idn 0
-| n+1   => pow n zx ⊗ zx
+/--
+ZX-calculus equivalence relation.
 
-def midSwap4 : ZxTerm' :=
-  ((idn 1 ⊗ swap 1 1) ⊗ idn 1)
+This inductive type defines when two ZX diagrams are equivalent under the ZX-calculus rewrite rules.
+The relation combines:
+- Standard equivalence relation structure (reflexivity, symmetry, transitivity)
+- Congruence with respect to sequential (`;`) and parallel (`⊗`) composition
+- Structural axioms from symmetric monoidal category theory
+- ZX-calculus specific rewrite rules (spider fusion, color change, etc.)
 
-noncomputable def multPi (a : ℤ) : Real.Angle := a • π
+Many constructors use `simpa` to resolve type equalities arising from non-definitional
+equalities of natural number arithmetic (e.g., `(n₁+n₂)+n₃` vs `n₁+(n₂+n₃)`).
+-/
+inductive ZxEquiv : {n m : ℕ} → ZxTerm n m → ZxTerm n m → Prop
+-- Equivalence relation structure
+| refl : ∀ {n m} (f : ZxTerm n m), ZxEquiv f f
+| symm : ∀ {n m} {f g : ZxTerm n m}, ZxEquiv f g → ZxEquiv g f
+| trans : ∀ {n m} {f g h : ZxTerm n m}, ZxEquiv f g → ZxEquiv g h → ZxEquiv f h
 
--- Rewrite system for non dependent AST
-inductive rewrites : ZxTerm' → ZxTerm' → Prop
--- Composing two Z spiders fuses them and adds their phases
-| z_fus {α β n m k} : rewrites (Z α n m ; Z β m k) (Z (α + β) n k)
--- Composing two X spiders fuses them and adds their phases
-| x_fus {α β n m k} : rewrites (X α n m ; X β m k) (X (α + β) n k)
--- A phaseless arity 2 Z- or X-spider is equal to the identity
-| z_id : rewrites (Z 0 1 1) (idn 1)
-| x_id : rewrites (X 0 1 1) (idn 1)
--- The Hadamard-gate changes the color of spiders
-| Z_color_change {α n m} : rewrites ((pow n H); Z α n m; (pow m H)) (X α n m)
-| X_color_change {α n m} : rewrites ((pow n H); X α n m; (pow m H)) (Z α n m)
--- Copy rules: Z-spider copies X-spiders, X-spider copies Z-spiders
-| Z_copy {α n} {a : ℤ} :
-  rewrites
-    ((X ((a : ℝ) * (π : ℝ)) 0 1); (Z α 1 n))
-    (pow n (X ((a : ℝ) * (π : ℝ)) 0 1))
-| X_copy {α n} {a : ℤ} :
-  rewrites
-    ((Z ((a : ℝ) * (π : ℝ)) 0 1); (X α 1 n))
-    (pow n (Z ((a : ℝ) * (π : ℝ)) 0 1))
--- A 2-cycle of Z- and X-spiders simplifies
-| bialgebra
-    : rewrites
-        ( (Z 0 1 2 ⊗ Z 0 1 2) ; midSwap4 ; (X 0 2 1 ⊗ X 0 2 1) )
-        ( (X 0 1 2 ⊗ X 0 1 2) ; midSwap4 ; (Z 0 2 1 ⊗ Z 0 2 1) )
--- π-copy: NOT-gate copies through and flips phase (both color combinations)
-| Z_pi_copy {α n} : rewrites ((X π 1 1); (Z α 1 n)) ((Z (-α) 1 n); (pow n (X π 1 1)))
-| X_pi_copy {α n} : rewrites ((Z π 1 1); (X α 1 n)) ((X (-α) 1 n); (pow n (Z π 1 1)))
--- A Hadamard-gate can be expanded into three rotations around the Bloch sphere.
-| euler_decomp : rewrites H (Z (π / (2 : ℝ)) 0 1 ; X (π / (2 : ℝ)) 1 1 ; Z (π / (2 : ℝ)) 1 0)
--- -- Z-comult followed by X-mult deletes the pair of wires
--- | hopf_ZX : rewrites (Z 0 1 2 ; X 0 2 1) (idn 1)
--- -- Symmetric version (colors swapped)
--- | hopf_XZ : rewrites (X 0 1 2 ; Z 0 2 1) (idn 1)
+-- Congruence rules: equivalence respects composition
+| seq_cong : ∀ {n k m} {f f' : ZxTerm n k} {g g' : ZxTerm k m},
+    ZxEquiv f f' → ZxEquiv g g' → ZxEquiv (f.comp g) (f'.comp g')
+| tens_cong : ∀ {n₁ m₁ n₂ m₂} {f f' : ZxTerm n₁ m₁} {g g' : ZxTerm n₂ m₂},
+    ZxEquiv f f' → ZxEquiv g g' → ZxEquiv (f.tens g) (f'.tens g')
 
-/-- Structural equality: diagrams are equal up to SMC + compact-closure laws. -/
-inductive Struc₀ : ZxTerm' → ZxTerm' → Prop
-| refl  : ∀ f, Struc₀ f f
-| symm  : ∀ {f g}, Struc₀ f g → Struc₀ g f
-| trans : ∀ {f g h}, Struc₀ f g → Struc₀ g h → Struc₀ f h
--- congruence
-| comp  : ∀ {f f' g g'}, Struc₀ f f' → Struc₀ g g' → Struc₀ (f ; g) (f' ; g')
-| tens  : ∀ {f f' g g'}, Struc₀ f f' → Struc₀ g g' → Struc₀ (f ⊗ g) (f' ⊗ g')
--- strict associativity
-| assoc_comp : ∀ f g h, Struc₀ ((f ; g) ; h) (f ; (g ; h))
-| assoc_tens : ∀ f g h, Struc₀ ((f ⊗ g) ⊗ h) (f ⊗ (g ⊗ h))
--- tensor unit (0 wires, i.e. `idn 0`)
-| unit_tens_l : ∀ f, Struc₀ (idn 0 ⊗ f) f
-| unit_tens_r : ∀ f, Struc₀ (f ⊗ idn 0) f
--- symmetry (braiding) : naturality + involutivity
-| swap_nat
-    {m n f g} :
-    hasType f m m → hasType g n n →
-    Struc₀ ((f ⊗ g) ; swap m n) (swap m n ; (g ⊗ f))
-| swap_inv {m n} : Struc₀ (swap m n ; swap n m) (idn (m + n))
--- compact-closure (yanking/snake); here for one wire each side
-| snake_L : Struc₀ ((idn 1 ⊗ cap) ; (cup ⊗ idn 1)) (idn 1)
-| snake_R : Struc₀ ((cap ⊗ idn 1) ; (idn 1 ⊗ cup)) (idn 1)
-| interchange {f f' g g'} :
-    Struc₀ ((f ⊗ g) ; (f' ⊗ g')) ((f ; f') ⊗ (g ; g'))
+-- Structural axioms: symmetric monoidal category (SMC) laws
+/-- Sequential composition is associative: `(f ; g) ; h = f ; (g ; h)` -/
+| assoc_comp : ∀ {n k l m} (f : ZxTerm n k) (g : ZxTerm k l) (h : ZxTerm l m),
+    ZxEquiv ((f.comp g).comp h) (f.comp (g.comp h))
 
--- smallest *equivalence* containing Struc₀ (refl/symm/trans)
-def Struc : ZxTerm' → ZxTerm' → Prop := Relation.EqvGen Struc₀
+/-- Tensor product is associative: `(f ⊗ g) ⊗ h = f ⊗ (g ⊗ h)` -/
+| assoc_tens : ∀ {n₁ m₁ n₂ m₂ n₃ m₃}
+    (f : ZxTerm n₁ m₁) (g : ZxTerm n₂ m₂) (h : ZxTerm n₃ m₃),
+    ZxEquiv
+      (by simpa [Nat.add_assoc] using ((f.tens g).tens h))
+      (by simpa [Nat.add_assoc] using (f.tens (g.tens h)))
 
-def Step : ZxTerm' → ZxTerm' → Prop :=
-  Comp (Comp Struc rewrites) Struc
+/-- Identity is left unit for composition: `id ; f = f` -/
+| unit_comp_l : ∀ (f : ZxTerm 1 1), ZxEquiv (id.comp f) f
+
+/-- Identity is right unit for composition: `f ; id = f` -/
+| unit_comp_r : ∀ (f : ZxTerm 1 1), ZxEquiv (f.comp id) f
+
+/-- Empty diagram is left unit for tensor: `empty ⊗ f = f` -/
+| unit_tens_l : ∀ {n m} (f : ZxTerm n m), ZxEquiv
+    (by simpa [Nat.zero_add] using (empty.tens f))
+    f
+
+/-- Empty diagram is right unit for tensor: `f ⊗ empty = f` -/
+| unit_tens_r : ∀ {n m} (f : ZxTerm n m), ZxEquiv
+    (by simpa [Nat.add_zero] using (f.tens empty))
+    f
+
+/-- Interchange law: `(f ⊗ g) ; (f' ⊗ g') = (f ; f') ⊗ (g ; g')` -/
+| interchange : ∀ {n₁ k₁ m₁ n₂ k₂ m₂}
+    (f : ZxTerm n₁ k₁) (f' : ZxTerm k₁ m₁) (g : ZxTerm n₂ k₂) (g' : ZxTerm k₂ m₂),
+    ZxEquiv ((f.tens g).comp (f'.tens g')) ((f.comp f').tens (g.comp g'))
+
+-- ZX-calculus specific rewrite rules
+
+/-- Spider fusion for Z spiders: composing Z spiders adds their phases -/
+| z_fus : ∀ {n m k} (α β : ℝ), ZxEquiv
+    ((Z α n m).comp (Z β m k))
+    (Z (α + β) n k)
+
+/-- Spider fusion for X spiders: composing X spiders adds their phases -/
+| x_fus : ∀ {n m k} (α β : ℝ), ZxEquiv
+    ((X α n m).comp (X β m k))
+    (X (α + β) n k)
+
+/-- A Z spider with phase 0 and arity (1,1) is the identity -/
+| z_id : ZxEquiv (Z 0 1 1) id
+
+/-- An X spider with phase 0 and arity (1,1) is the identity -/
+| x_id : ZxEquiv (X 0 1 1) id
+
+/-- Color change: Hadamard conjugation converts Z spiders to X spiders -/
+| color_change_Z : ∀ (α : ℝ) (n m : ℕ), ZxEquiv
+    (((tensor_pow H n).comp (by simpa [Nat.add_zero] using (Z α n m))).comp (tensor_pow H m))
+    (by simpa [Nat.add_zero] using (X α n m))
+
+/-- Color change: Hadamard conjugation converts X spiders to Z spiders -/
+| color_change_X : ∀ (α : ℝ) (n m : ℕ), ZxEquiv
+    (((tensor_pow H n).comp (by simpa [Nat.add_zero] using (X α n m))).comp (tensor_pow H m))
+    (by simpa [Nat.add_zero] using (Z α n m))
+
+-- π-copy rules: spiders with phase π can "copy through" opposite-color spiders with phase negation
+/-- π-copy for X through Z: an X-π spider commutes with a Z spider, negating the phase -/
+| z_pi_copy_simple : ∀ {α}, ZxEquiv
+    ((X π 1 1).comp (Z α 1 1))
+    ((Z (-α) 1 1).comp (X π 1 1))
+
+/-- π-copy for Z through X: a Z-π spider commutes with an X spider, negating the phase -/
+| x_pi_copy_simple : ∀ {α}, ZxEquiv
+    ((Z π 1 1).comp (X α 1 1))
+    ((X (-α) 1 1).comp (Z π 1 1))
+
+-- TODO: Additional rules to implement
+-- - Bialgebra rule: (Z⊗Z) ; swap ; (X⊗X) = (X⊗X) ; swap ; (Z⊗Z)
+-- - Euler decomposition: H = Z(π/2) ; X(π/2) ; Z(π/2)
+-- - Hopf algebra rules (cup/cap interactions with spiders)
