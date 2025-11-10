@@ -31,6 +31,8 @@ map ℂ^(2^n) → ℂ^(2^m), representing quantum operations on n qubits.
 All definitions are noncomputable as they involve complex numbers and
 infinite-dimensional constructions. The interpretation uses Mathlib's
 `PiLp` type for L²-spaces with the standard inner product.
+
+`sorry`'s are placeholders for incomplete definitions/proofs
 -/
 
 open Complex ComplexConjugate InnerProductSpace
@@ -85,7 +87,7 @@ def interpGen {n m : ℕ} (g : Generator n m) : LinMap n m :=
 match g with
   | .empty => LinearMap.id
   | .id => LinearMap.id
-  | .swap n m => sorry  -- TODO: use swap_gen
+  | .swap n m => swap_gen n m
   | _ => sorry  -- TODO: H, Z, X spiders, cup, cap
 
 /-- Interpret ZX diagrams as linear maps via structural recursion -/
