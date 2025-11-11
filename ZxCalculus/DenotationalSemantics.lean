@@ -83,13 +83,56 @@ def swap_gen (n m : ℕ) : LinMap (n + m) (m + n) := {
   map_smul' := sorry
 }
 
+/-- Hadamard gate:
+(1/√2) [[1, 1], [1, -1]] -/
+def hadamard : LinMap 1 1 := {
+  toFun := fun ψ =>
+    let coeff := 1 / Real.sqrt 2
+    WithLp.equiv 2 _ |>.symm fun i =>
+      if i = 0 then
+        coeff * (WithLp.equiv 2 _ ψ 0 + WithLp.equiv 2 _ ψ 1)
+      else
+        coeff * (WithLp.equiv 2 _ ψ 0 - WithLp.equiv 2 _ ψ 1)
+  map_add' := sorry
+  map_smul' := sorry
+}
+
+/-- Z-spider with phase α, aribitary input
+This is hardcoded for now but we will soon need to generalize.
+-/
+def z_spider (α : ℝ) (n m : ℕ) : LinMap n m :=
+  match n, m with
+  | 1, 1 => {
+      toFun := fun ψ =>
+        WithLp.equiv 2 _ |>.symm fun i =>
+          if i = 0 then
+            WithLp.equiv 2 _ ψ 0 -- |0⟩: multiply by 1
+          else
+            -- |1⟩: multiply by e^(iαπ)
+            Complex.exp (Complex.I * α * Real.pi) * (WithLp.equiv 2 _ ψ 1)
+      map_add' := sorry
+      map_smul' := sorry
+    }
+  | _, _ => {
+      -- Return a placeholder for now if not 1 input and one output
+      toFun := fun ψ => sorry
+      map_add' := sorry
+      map_smul' := sorry
+    }
+
+
 /-- Interpret ZX generators as linear maps -/
 def interpGen {n m : ℕ} (g : Generator n m) : LinMap n m :=
 match g with
   | .empty => LinearMap.id
   | .id => LinearMap.id
   | .swap n m => swap_gen n m
-  | _ => sorry  -- TODO: H, Z, X spiders, cup, cap
+  | .H => hadamard
+  | .Z α n m => z_spider α n m
+  | .X α n m => sorry -- TODO
+  | .cup => sorry     -- TODO
+  | .cap => sorry     -- TODO
+  -- | _ => sorry  -- TODO: H, Z, X spiders, cup, cap, and more
 
 /-- Interpret ZX diagrams as linear maps via structural recursion -/
 def interp {n m : ℕ} : ZxTerm n m → (LinMap n m)
