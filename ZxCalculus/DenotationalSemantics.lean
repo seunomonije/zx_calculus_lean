@@ -75,17 +75,18 @@ lemma hadamard_outer_product :
 /-- Computational basis states are orthogonal: ⟨0|1⟩ = 0 -/
 lemma basis_orthogonal : ket0ᴴ * ket1 = 0 := by
   ext i j
-  fin_cases i <;> fin_cases j
-  all_goals {
-    simp only [ket0, ket1, basisVector, Matrix.mul_apply, Matrix.conjTranspose_apply,
+  fin_cases i
+  fin_cases j
+  simp only [ket0, ket1, basisVector, Matrix.mul_apply, Matrix.conjTranspose_apply,
                Matrix.of_apply]
-    norm_num
-  }
+  norm_num
+
 
 /-- Computational basis states are normalized: ⟨0|0⟩ = 1 (scalar) -/
 lemma basis_normalized_0 : ket0ᴴ * ket0 = 1 := by
   ext i j
-  (fin_cases i ; fin_cases j)
+  fin_cases i
+  fin_cases j
   all_goals {
     simp only [ket0, basisVector, Matrix.mul_apply, Matrix.conjTranspose_apply,
                Matrix.of_apply]
@@ -96,11 +97,12 @@ lemma basis_normalized_0 : ket0ᴴ * ket0 = 1 := by
 lemma hadamard_self_inverse :
   hadamardMatrix * hadamardMatrix = 2 • (1 : Matrix (Fin 2) (Fin 2) ℂ) := by
   ext i j
-  fin_cases i <;> fin_cases j <;>
-    simp only [hadamardMatrix, Matrix.mul_apply, Matrix.smul_apply, Matrix.one_apply,
+  fin_cases i <;>
+  fin_cases j <;>
+  simp only [hadamardMatrix, Matrix.mul_apply, Matrix.smul_apply, Matrix.one_apply,
                Finset.sum_fin_eq_sum_range, Finset.sum_range_succ,
                Fin.zero_eta, Fin.mk_one] <;>
-    norm_num
+  norm_num
 
 /-- Hadamard maps |0⟩ to |+⟩ -/
 lemma hadamard_zero_to_plus : hadamardMatrix * ket0 = ketPlus := by
