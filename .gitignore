@@ -1,5 +1,7 @@
-# Aristotle - ignore entire folder
+# Aristotle - ignore entire folder and root convenience files
 aristotle/
+/prove.sh
+/README_ARISTOTLE.md
 
 # Lean build artifacts
 build/
